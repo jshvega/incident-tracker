@@ -1,7 +1,18 @@
 /*
-    This file is not part of the migration sequence. 
-    Its purpose is to give the SLA sweep both matching and non-matching rows.
+    NOTES
+    
+    #1
+    This file is not part of the migration sequence. Its purpose is to 
+    give the SLA sweep both matching and non-matching rows.
 
+    #2
+    Timestamps are computed from now() at INSERT time and are frozen
+    thereafter. The data ages: rows seeded as not-yet-due cross their
+    deadline as real time passes, and eventually every row is overdue,
+    leaving no negative cases. Re-seed (TRUNCATE ... CASCADE, then re-run)
+    when the sweep's test cases need to be meaningful again.
+
+    #3
     Plain text seed credentials for local testing only: hello123
 */
 

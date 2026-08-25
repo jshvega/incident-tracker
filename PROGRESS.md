@@ -42,3 +42,30 @@ Windows 11 / AMD64
 
 
 ## Phase 1
+
+### Built
+- Lambdas/sla_sweep_query.sql - the sweep query, EXPLAIN ANALYZE confirmed Index Scan using idx_incidents_due_at_unresolved.
+- db/checks.sql, verification queries (incident state dump).
+
+### Reps 
+(a) three-table library schema from blank file, enum + 2 FKs + CHECK + partial index, ran clean, dropped. 
+(b) three-table join with filter and aggregate. 
+Teach-aloud done.
+
+### What was hard
+- Rep (a) reproduced the NOT NULL + ON DELETE SET NULL contradiction from the original schema — the exact mistake, unprompted. That's the one to watch for.
+- Rep (a) also got the partial index backwards: indexed the enum column and predicated on the same enum. The pattern is sort on the range-queried column, filter on the status.
+- Rep (b) joined users via comments.author_id instead of incidents.reporter_id — plausible result, wrong question. users reaches incidents by two FKs and the choice determines meaning.
+- Aggregates can't go in WHERE; HAVING filters after grouping.
+- Teach-aloud stalled on why status_history/escalations are tables not columns, and on reciting the three decisions cold.
+
+### Gotchas
+- Seed data ages after insertion. Timestamps freeze at INSERT; not-yet-due rows cross their deadlines as real time passes. Re-seed when test cases need to be meaningful.
+- A partial index is used only when the query's conditions imply the index predicate. Narrower is fine; wider means the index is skipped.
+- EXPLAIN ANALYZE shows estimated vs actual rows. A fresh table has no statistics, ANALYZE <table> updates them.
+
+
+---
+
+
+## Phase 2
