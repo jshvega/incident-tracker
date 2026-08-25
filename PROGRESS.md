@@ -36,3 +36,9 @@ Windows 11 / AMD64
 - Credits: 3 of 5 onboarding tasks left (EC2 launch+terminate, RDS, Bedrock prompt) for the second $100. Budget and Lambda covered.
 - Consider IAM Identity Center (`aws sso login`) to replace the long-lived access key with short-lived credentials.
 - `docker-compose.yml` still empty, fills in with Postgres + LocalStack.
+
+
+---
+
+
+## Phase 1
