@@ -1,3 +1,14 @@
 spring:
   application:
     name: incident-tracker
+  datasource:
+    url: jdbc:postgresql://aws-0-us-east-1.pooler.supabase.com:5432/postgres
+    username: postgres.tbxbupfgtitytrtccnkh
+    password: ${SUPABASE_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 5
+      max-lifetime: 540000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  
