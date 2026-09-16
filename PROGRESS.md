@@ -69,3 +69,36 @@ Teach-aloud done.
 
 
 ## Phase 2
+
+### Built
+Spring Boot 4.1.1 project in /api; GET /incidents returning six rows from Supabase through controller → service → repository → Hibernate.
+
+### Decisions
+- Maven: The Spring Initializr default
+- Session pooler: Spring is one long-lived instance
+- ddl-auto as validate: SQL owns the schema, Hibernate only checks the entity matches at startup
+- Layered packages: Convention
+- DTOs from the first endpoint rather than Phase 3: Doing it now means Phase 3 grows instead of being rewritten
+
+*These are one-line reasons
+
+### Reps 
+(a) Blank project, hardcoded endpoint, ran clean, one typo caught from the compiler (RequestController vs RestController)
+(b) Teach-aloud, done after building the flow diagram
+
+### What was hard
+- The enum case mismatch
+- Java fundamentals (record syntax, method signatures, object.method() vs static)
+- Wrapping my head around the big picture concepts and how it all connects (very limited prior experience with Java, Spring Boot and Postgres)
+
+### What clicked
+- The layering rule (Jackson knows JSON↔DTO, Hibernate knows entity↔table, the service is the only thing that knows both)
+- auto-configuration as conditional rules you can switch off
+
+### Gotchas
+- Validate checks column names and broad types only. Not enum values, not nullability. The enum mismatch passed startup and blew up on the first read.
+- Java enum constants are lowercase here on purpose, mirroring the Postgres enum. Phase 6's Python must match too.
+- Boot 4 renamed starters and packages: spring-boot-starter-webmvc, org.springframework.boot.jdbc.autoconfigure. Most tutorials show Boot 3 names.
+- $env:VAR is per-terminal-session. New terminal, no variable, auth failure.
+- Pooler auth failures always echo user postgres regardless of the real cause. Check username and password.
+- The four-layer error index: javac (layers disagree), Hikari/Postgres (can't connect), Hibernate validate (entity vs schema), runtime (data can't convert).
