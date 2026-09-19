@@ -2,15 +2,20 @@ package com.manfred.incidenttracker.entity;
 
 import java.time.OffsetDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcType;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.dialect.type.PostgreSQLEnumJdbcType;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -33,14 +38,20 @@ public class Incident {
     @JdbcType(PostgreSQLEnumJdbcType.class)
     private Status incidentStatus;
 
-    private Long reporterId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reporter_id", nullable = false)
+    private User reporterId;
 
-    private Long assigneeId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id", nullable = true)
+    private User assigneeId;
 
     private Integer slaMinutes;
 
+    @CreationTimestamp 
     private OffsetDateTime createdAt;
 
+    @UpdateTimestamp 
     private OffsetDateTime updatedAt;
 
     private OffsetDateTime resolvedAt;
@@ -65,10 +76,10 @@ public class Incident {
     public Status getIncidentStatus(){
         return incidentStatus;
     }
-    public Long getReporterId(){
+    public User getReporterId(){
         return reporterId;
     }
-    public Long getAssigneeId(){
+    public User getAssigneeId(){
         return assigneeId;
     }
     public Integer getSlaMinutes(){
