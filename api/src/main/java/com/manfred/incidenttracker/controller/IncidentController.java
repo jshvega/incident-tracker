@@ -1,14 +1,23 @@
 package com.manfred.incidenttracker.controller;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.net.URI;
 import java.util.List;
 
+import com.manfred.incidenttracker.dto.CreateIncidentRequest;
 import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
 import com.manfred.incidenttracker.service.IncidentService;
+
+import jakarta.validation.Valid;
 
 
 /*
@@ -42,6 +51,17 @@ public class IncidentController {
     @GetMapping("/{id}")
     public IncidentDetail detail(@PathVariable Long id){
         return incidentService.findById(id);
+    }
+
+    @PostMapping 
+    public ResponseEntity<IncidentDetail> create(@Valid @RequestBody CreateIncidentRequest req, @RequestHeader("X-User-Id") Long userId){
+
+        IncidentDetail detail = incidentService.create(req, userId);
+
+        URI location = URI.create("/incidents/"+detail.id());
+
+        return ResponseEntity.created(location).body(detail);
+
     }
 
 }

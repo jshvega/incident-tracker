@@ -22,6 +22,7 @@ import jakarta.persistence.Table;
 @Table(name = "incidents")
 public class Incident {
 
+    // FIELDS
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -59,8 +60,27 @@ public class Incident {
     private OffsetDateTime dueAt;
 
 
+    // CONSTRUCTORS
     protected Incident(){
     }
+    public Incident(String title, String description, Severity severity, User reporter, int slaMinutes, OffsetDateTime dueAt){
+        
+        this.title = title;
+        this.description = description;
+        this.incidentSeverity = severity;
+        this.reporterId = reporter;
+        this.slaMinutes = slaMinutes;
+        this.dueAt = dueAt;
+        
+        this.incidentStatus = Status.open;
+
+    }
+    public void setAssignee(User assignee){
+        this.assigneeId = assignee;
+    }
+
+
+    // METHODS
     public Long getId(){
         return id;
     }

@@ -1,16 +1,21 @@
 package com.manfred.incidenttracker.service;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.manfred.incidenttracker.dto.CreateIncidentRequest;
 import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
 import com.manfred.incidenttracker.entity.Incident;
 import com.manfred.incidenttracker.entity.User;
 import com.manfred.incidenttracker.exception.IncidentNotFoundException;
+import com.manfred.incidenttracker.exception.UserNotFoundException;
 import com.manfred.incidenttracker.repository.IncidentRepository;
+import com.manfred.incidenttracker.repository.UserRepository;
+
 import org.springframework.transaction.annotation.Transactional;
 
 
@@ -22,17 +27,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Service // "This class contains application/business logic. Create an instance of it and make it available for dependency injection."
 public class IncidentService {
     
-    // Field
+    // FIELDS
     // "This service needs an IncidentRepository to get incident data."
     private final IncidentRepository incidentRepository;
+    private final UserRepository userRepository;
 
-    // Constructor
+    // CONSTRUCTOR
     // "When Spring creates my service, give me an IncidentRepository, and I'll store it."
-    public IncidentService(IncidentRepository incidentRepository){
+    public IncidentService(IncidentRepository incidentRepository, UserRepository userRepository){
         this.incidentRepository = incidentRepository;
+        this.userRepository = userRepository;
     }
 
-    // Method
+    // METHOD
     // "Give me all the incidents, but return them in the format that the outside/API layer should see."
     public List<IncidentResponse> list() {
         
@@ -52,11 +59,8 @@ public class IncidentService {
 
     }
 
-    //Method
-    @Transactional(readOnly = true)
-    public IncidentDetail findById(Long id){
-
-        Incident incident = incidentRepository.findById(id).orElseThrow(() -> new IncidentNotFoundException(id));
+    //METHOD
+    private IncidentDetail toDetail(Incident incident){
 
         User reporter = incident.getReporterId();
         User assignee = incident.getAssigneeId();
@@ -78,6 +82,37 @@ public class IncidentService {
             assignee != null ? assignee.getId() : null,
             assignee != null ? assignee.getEmail() : null
         );
+    }
+
+    //METHOD
+    @Transactional(readOnly = true)
+    public IncidentDetail findById(Long id){
+
+        Incident incident = incidentRepository.findById(id).orElseThrow(() -> new IncidentNotFoundException(id));
+
+        return toDetail(incident);
+
+    }
+
+    //METHOD
+    @Transactional 
+    public IncidentDetail create(CreateIncidentRequest req, Long reporterId){
+
+        User reporter = userRepository.findById(reporterId).orElseThrow(() -> new UserNotFoundException(reporterId));
+
+        User assignee = null;
+        if(req.assigneeId() != null){
+            assignee = userRepository.findById(req.assigneeId()).orElseThrow(() -> new UserNotFoundException(req.assigneeId()));
+        }
+
+        OffsetDateTime dueAt = OffsetDateTime.now().plusMinutes(req.slaMinutes());
+
+        Incident incident = new Incident(req.title(), req.description(), req.severity(), reporter, req.slaMinutes(), dueAt);
+        incident.setAssignee(assignee);
+
+        Incident saved = incidentRepository.save(incident);
+
+        return toDetail(saved);
 
     }
 
