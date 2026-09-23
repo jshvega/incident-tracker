@@ -4,9 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+
+import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
 import com.manfred.incidenttracker.entity.Incident;
+import com.manfred.incidenttracker.entity.User;
+import com.manfred.incidenttracker.exception.IncidentNotFoundException;
 import com.manfred.incidenttracker.repository.IncidentRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 
 /* 
@@ -44,6 +49,35 @@ public class IncidentService {
         }
 
         return results;
+
+    }
+
+    //Method
+    @Transactional(readOnly = true)
+    public IncidentDetail findById(Long id){
+
+        Incident incident = incidentRepository.findById(id).orElseThrow(() -> new IncidentNotFoundException(id));
+
+        User reporter = incident.getReporterId();
+        User assignee = incident.getAssigneeId();
+
+        return new IncidentDetail(
+            incident.getId(),
+            incident.getTitle(),
+            incident.getIncidentSeverity().name(),
+            incident.getIncidentStatus().name(),
+
+            incident.getDescription(),
+            incident.getSlaMinutes(),
+            incident.getCreatedAt(),
+            incident.getUpdatedAt(),
+            incident.getResolvedAt(),
+            incident.getDueAt(),
+            reporter.getId(),
+            reporter.getEmail(),
+            assignee != null ? assignee.getId() : null,
+            assignee != null ? assignee.getEmail() : null
+        );
 
     }
 

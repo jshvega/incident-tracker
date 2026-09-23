@@ -1,10 +1,12 @@
 package com.manfred.incidenttracker.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
+import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
 import com.manfred.incidenttracker.service.IncidentService;
 
@@ -30,11 +32,16 @@ public class IncidentController {
         this.incidentService = incidentService;
     }
 
-    // METHOD
+    // METHODS
     @GetMapping 
     // Passed nothing. If I later wrote @GetMapping("/open"), it would serve /incidents/open.
     public List<IncidentResponse> list() {
         return incidentService.list();
+    }
+
+    @GetMapping("/{id}")
+    public IncidentDetail detail(@PathVariable Long id){
+        return incidentService.findById(id);
     }
 
 }
