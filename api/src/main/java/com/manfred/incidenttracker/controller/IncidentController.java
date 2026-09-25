@@ -15,6 +15,8 @@ import java.util.List;
 import com.manfred.incidenttracker.dto.CreateIncidentRequest;
 import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
+import com.manfred.incidenttracker.dto.StatusHistoryEntry;
+import com.manfred.incidenttracker.dto.TransitionRequest;
 import com.manfred.incidenttracker.service.IncidentService;
 
 import jakarta.validation.Valid;
@@ -62,6 +64,23 @@ public class IncidentController {
 
         return ResponseEntity.created(location).body(detail);
 
+    }
+
+    @PostMapping("/{id}/transitions")
+    public IncidentDetail transitions(
+    @PathVariable Long id,
+    @Valid @RequestBody TransitionRequest transitionRequest,
+    @RequestHeader("X-User-Id") Long userId) {
+
+        IncidentDetail detail = incidentService.transition(id, transitionRequest.status(), userId);
+
+        return detail;
+
+    }
+
+    @GetMapping("/{id}/history")
+    public List<StatusHistoryEntry> history(@PathVariable Long id){
+        return incidentService.history(id);
     }
 
 }

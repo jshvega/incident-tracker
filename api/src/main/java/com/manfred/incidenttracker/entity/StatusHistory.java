@@ -27,7 +27,7 @@ public class StatusHistory {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "incident_id", nullable = false)
-    private Incident incidentId;
+    private Incident incident;
 
     @Enumerated(EnumType.STRING)
     @JdbcType(PostgreSQLEnumJdbcType.class)
@@ -45,14 +45,23 @@ public class StatusHistory {
     private OffsetDateTime changedAt;
 
 
-
+    // CONSTRUCTORS
     protected StatusHistory(){
     }
+    public StatusHistory(Incident incident, Status from, Status to, User changedBy){
+        this.incident = incident;
+        this.fromStatus = from;
+        this.toStatus = to;
+        this.changedBy = changedBy;
+    }
+
+
+    // METHODS
     public Long getId(){
         return id;
     }
-    public Incident getIncidentId(){
-        return incidentId;
+    public Incident getIncident(){
+        return incident;
     }
     public Status getFromStatus(){
         return fromStatus;

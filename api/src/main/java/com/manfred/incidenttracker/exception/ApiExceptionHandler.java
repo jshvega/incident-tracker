@@ -43,4 +43,9 @@ public class ApiExceptionHandler {
 
     }
 
+    @ExceptionHandler 
+    public ProblemDetail handleIllegalTransition(IllegalTransitionException ex){
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
 }

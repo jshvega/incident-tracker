@@ -6,14 +6,19 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.manfred.incidenttracker.domain.IncidentStateMachine;
 import com.manfred.incidenttracker.dto.CreateIncidentRequest;
 import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
+import com.manfred.incidenttracker.dto.StatusHistoryEntry;
 import com.manfred.incidenttracker.entity.Incident;
+import com.manfred.incidenttracker.entity.Status;
+import com.manfred.incidenttracker.entity.StatusHistory;
 import com.manfred.incidenttracker.entity.User;
 import com.manfred.incidenttracker.exception.IncidentNotFoundException;
 import com.manfred.incidenttracker.exception.UserNotFoundException;
 import com.manfred.incidenttracker.repository.IncidentRepository;
+import com.manfred.incidenttracker.repository.StatusHistoryRepository;
 import com.manfred.incidenttracker.repository.UserRepository;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -31,12 +36,16 @@ public class IncidentService {
     // "This service needs an IncidentRepository to get incident data."
     private final IncidentRepository incidentRepository;
     private final UserRepository userRepository;
+    private final StatusHistoryRepository statusHistoryRepository;
+    private final IncidentStateMachine machine;
 
     // CONSTRUCTOR
     // "When Spring creates my service, give me an IncidentRepository, and I'll store it."
-    public IncidentService(IncidentRepository incidentRepository, UserRepository userRepository){
+    public IncidentService(IncidentRepository incidentRepository, UserRepository userRepository, StatusHistoryRepository statusHistoryRepository, IncidentStateMachine machine){
         this.incidentRepository = incidentRepository;
         this.userRepository = userRepository;
+        this.statusHistoryRepository = statusHistoryRepository;
+        this.machine = machine;
     }
 
     // METHOD
@@ -113,6 +122,63 @@ public class IncidentService {
         Incident saved = incidentRepository.save(incident);
 
         return toDetail(saved);
+
+    }
+
+    //METHOD
+    @Transactional 
+    public IncidentDetail transition(Long incidentId, Status to, Long userId){
+
+        Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
+
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+
+        machine.validateTransition(incident.getIncidentStatus(), to);
+
+        Status from = incident.getIncidentStatus();
+
+        incident.setIncidentStatus(to);
+
+        if(to == Status.resolved){
+            incident.setResolvedAt(OffsetDateTime.now());
+        } else if(from == Status.resolved && to == Status.investigating){
+            incident.setResolvedAt(null);
+        }
+
+        StatusHistory historyRow = new StatusHistory(incident, from, to, user);
+
+        statusHistoryRepository.save(historyRow);
+
+        return toDetail(incident);
+
+    }
+
+    //METHOD
+    @Transactional(readOnly = true)
+    public List<StatusHistoryEntry> history(Long incidentId){
+
+        if(!incidentRepository.existsById(incidentId)){
+            throw new IncidentNotFoundException(incidentId);
+        }
+
+        List<StatusHistory> rows = statusHistoryRepository.findByIncidentIdOrderByChangedAtAsc(incidentId);
+
+        List<StatusHistoryEntry> results = new ArrayList<>();
+
+        for (StatusHistory item : rows){
+
+            User user = item.getChangedBy();
+
+            results.add(new StatusHistoryEntry(
+                item.getFromStatus().name(), 
+                item.getToStatus().name(), 
+                user != null ? user.getId() : null,
+                user != null ? user.getEmail() : null,
+                item.getChangedAt())
+            );
+        }
+
+        return results;
 
     }
 

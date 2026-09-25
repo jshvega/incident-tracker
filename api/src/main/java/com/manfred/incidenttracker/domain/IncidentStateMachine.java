@@ -4,9 +4,13 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+
+import org.springframework.stereotype.Component;
+
 import com.manfred.incidenttracker.entity.Status;
 import com.manfred.incidenttracker.exception.IllegalTransitionException;
 
+@Component 
 public class IncidentStateMachine {
  
     // TABLE
@@ -17,6 +21,9 @@ public class IncidentStateMachine {
         transitions.put(Status.resolved,        EnumSet.of(Status.closed, Status.investigating));
         transitions.put(Status.closed,          EnumSet.noneOf(Status.class));
     }
+
+    // CONSTRUCTOR
+    public IncidentStateMachine(){}
 
     // METHODS
     public boolean isTransitionAllowed(Status from, Status to){

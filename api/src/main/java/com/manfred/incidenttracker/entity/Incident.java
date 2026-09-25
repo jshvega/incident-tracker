@@ -117,5 +117,14 @@ public class Incident {
     public OffsetDateTime getDueAt(){
         return dueAt;
     }
+
+
+    // SETTERS
+    public void setIncidentStatus(Status incidentStatus){
+        this.incidentStatus = incidentStatus;
+    }
+    public void setResolvedAt(OffsetDateTime resolvedAt){
+        this.resolvedAt = resolvedAt;
+    }
     
 }
