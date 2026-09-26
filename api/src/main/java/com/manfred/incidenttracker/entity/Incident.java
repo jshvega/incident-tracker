@@ -120,6 +120,15 @@ public class Incident {
 
 
     // SETTERS
+    public void setIncidentTitle(String title){
+        this.title = title;
+    }
+    public void setIncidentDescription(String description){
+        this.description = description;
+    }
+    public void setIncidentSeverity(Severity incidentSeverity){
+        this.incidentSeverity = incidentSeverity;
+    }
     public void setIncidentStatus(Status incidentStatus){
         this.incidentStatus = incidentStatus;
     }

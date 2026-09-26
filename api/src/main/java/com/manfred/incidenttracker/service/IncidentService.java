@@ -7,10 +7,12 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.manfred.incidenttracker.domain.IncidentStateMachine;
+import com.manfred.incidenttracker.dto.AssignIncidentRequest;
 import com.manfred.incidenttracker.dto.CreateIncidentRequest;
 import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
 import com.manfred.incidenttracker.dto.StatusHistoryEntry;
+import com.manfred.incidenttracker.dto.UpdateIncidentRequest;
 import com.manfred.incidenttracker.entity.Incident;
 import com.manfred.incidenttracker.entity.Status;
 import com.manfred.incidenttracker.entity.StatusHistory;
@@ -149,6 +151,9 @@ public class IncidentService {
 
         statusHistoryRepository.save(historyRow);
 
+        incidentRepository.flush();
+        //There is a chance this might not be needed. Adding it for safety.
+
         return toDetail(incident);
 
     }
@@ -179,6 +184,59 @@ public class IncidentService {
         }
 
         return results;
+
+    }
+
+    //METHOD
+    @Transactional 
+    public IncidentDetail update(Long incidentId, UpdateIncidentRequest reqUpdate){
+
+        // Load the incident, or throw error.
+        Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
+
+        if(reqUpdate.title() != null){
+            incident.setIncidentTitle(reqUpdate.title());
+        }
+        if(reqUpdate.description() != null){
+            incident.setIncidentDescription(reqUpdate.description());
+        }
+        if(reqUpdate.severity() != null){
+            incident.setIncidentSeverity(reqUpdate.severity());
+        }
+
+        incidentRepository.flush();
+        //There is a chance this might not be needed. Adding it for safety.
+
+        return toDetail(incident);
+    }
+
+    //METHOD
+    @Transactional 
+    public IncidentDetail assign(Long incidentId, AssignIncidentRequest req){
+
+        Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
+
+        User assignee = null;
+
+        if(req.assigneeId() != null){
+            assignee = userRepository.findById(req.assigneeId()).orElseThrow(() -> new UserNotFoundException(req.assigneeId()));
+        }
+
+        incident.setAssignee(assignee);
+
+        incidentRepository.flush();
+
+        return toDetail(incident);
+
+    }
+
+    //METHOD
+    @Transactional 
+    public void delete(Long incidentId){
+        
+        Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
+
+        incidentRepository.delete(incident);
 
     }
 

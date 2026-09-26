@@ -1,7 +1,9 @@
 package com.manfred.incidenttracker.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,11 +14,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.net.URI;
 import java.util.List;
 
+import com.manfred.incidenttracker.dto.AssignIncidentRequest;
 import com.manfred.incidenttracker.dto.CreateIncidentRequest;
 import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
 import com.manfred.incidenttracker.dto.StatusHistoryEntry;
 import com.manfred.incidenttracker.dto.TransitionRequest;
+import com.manfred.incidenttracker.dto.UpdateIncidentRequest;
 import com.manfred.incidenttracker.service.IncidentService;
 
 import jakarta.validation.Valid;
@@ -81,6 +85,33 @@ public class IncidentController {
     @GetMapping("/{id}/history")
     public List<StatusHistoryEntry> history(@PathVariable Long id){
         return incidentService.history(id);
+    }
+
+    @PatchMapping("/{id}")
+    public IncidentDetail update(@PathVariable Long id, @Valid @RequestBody UpdateIncidentRequest req){
+
+        IncidentDetail update = incidentService.update(id, req);
+
+        return update;
+
+    }
+
+    @PatchMapping("/{id}/assignee")
+    public IncidentDetail assign(@PathVariable Long id, @Valid @RequestBody AssignIncidentRequest req){
+
+        IncidentDetail assign = incidentService.assign(id, req);
+
+        return assign;
+
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id){
+
+        incidentService.delete(id);
+
+        return ResponseEntity.noContent().build();
+
     }
 
 }
