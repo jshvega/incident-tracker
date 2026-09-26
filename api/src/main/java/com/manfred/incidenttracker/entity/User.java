@@ -39,6 +39,13 @@ public class User {
 
     protected User(){
     }
+    public User(String email, String passwordHash, Role userRole, OffsetDateTime createdAt){
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.userRole = userRole;
+        this.createdAt = createdAt;
+    }
+
     public Long getId(){
         return id;
     }
