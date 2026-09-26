@@ -102,3 +102,44 @@ Spring Boot 4.1.1 project in /api; GET /incidents returning six rows from Supaba
 - $env:VAR is per-terminal-session. New terminal, no variable, auth failure.
 - Pooler auth failures always echo user postgres regardless of the real cause. Check username and password.
 - The four-layer error index: javac (layers disagree), Hikari/Postgres (can't connect), Hibernate validate (entity vs schema), runtime (data can't convert).
+
+
+---
+
+
+## Phase 3
+
+### Built
+- Four remaining entities (User, StatusHistory, Comment, Escalation) and their repositories.
+- Unidirectional LAZY @ManyToOne on all seven FKs; open-in-view disabled.
+- Centralized error handling: @RestControllerAdvice returning ProblemDetail (404, 409, 400).
+- Full CRUD: GET list, GET detail, POST create, PATCH update, PATCH assignee, DELETE.
+- Bean Validation on request DTOs, separate from response DTOs.
+- State machine as a plain class: open → investigating | closed, investigating → resolved,
+  resolved → closed | investigating, closed terminal.
+- POST /incidents/{id}/transitions, writing status_history in the same transaction.
+- Comments: POST and GET.
+- Tests: 9 state machine (pure JUnit), 3 service (Mockito).
+
+### Decisions
+- X-User-Id header as the temporary acting-user seam; Phase 4 replaces it.
+- Transitions on their own endpoint, so the general edit cannot touch status.
+- open → closed allowed for false alarms; admin-only gating deferred to Phase 4.
+- Hard delete with FK cascade; soft delete is the production answer, documented not implemented.
+- sla_minutes not editable yet; editing it must recompute due_at from created_at.
+- Comments and history as separate endpoints, not embedded in the detail response.
+
+### Reps
+- (a) State machine + exception + test from a blank file.
+- (b) Service + repository interface + Mockito test from a blank file.
+
+### What was hard / what clicked
+- Had one User-instead-of-Role crash: compiled fine, failed at getEnumConstants.
+- Atomicity experiment: what you predicted vs what you saw.
+- Both reps had vacuous assertion lessons.
+- Getting the overall map of the concepts and how each piece works together. Repetition was key.
+
+### Open items
+- Three flush() calls not yet fully justified. I added them for safety, but certain if they are needed.
+- setIncidentTitle / setIncidentDescription naming.
+- Test 2 uses open → closed, which is legal in the real machine.
