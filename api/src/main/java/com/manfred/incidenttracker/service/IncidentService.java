@@ -8,17 +8,21 @@ import org.springframework.stereotype.Service;
 
 import com.manfred.incidenttracker.domain.IncidentStateMachine;
 import com.manfred.incidenttracker.dto.AssignIncidentRequest;
+import com.manfred.incidenttracker.dto.CommentResponse;
+import com.manfred.incidenttracker.dto.CreateCommentRequest;
 import com.manfred.incidenttracker.dto.CreateIncidentRequest;
 import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
 import com.manfred.incidenttracker.dto.StatusHistoryEntry;
 import com.manfred.incidenttracker.dto.UpdateIncidentRequest;
+import com.manfred.incidenttracker.entity.Comment;
 import com.manfred.incidenttracker.entity.Incident;
 import com.manfred.incidenttracker.entity.Status;
 import com.manfred.incidenttracker.entity.StatusHistory;
 import com.manfred.incidenttracker.entity.User;
 import com.manfred.incidenttracker.exception.IncidentNotFoundException;
 import com.manfred.incidenttracker.exception.UserNotFoundException;
+import com.manfred.incidenttracker.repository.CommentRepository;
 import com.manfred.incidenttracker.repository.IncidentRepository;
 import com.manfred.incidenttracker.repository.StatusHistoryRepository;
 import com.manfred.incidenttracker.repository.UserRepository;
@@ -39,14 +43,16 @@ public class IncidentService {
     private final IncidentRepository incidentRepository;
     private final UserRepository userRepository;
     private final StatusHistoryRepository statusHistoryRepository;
+    private final CommentRepository commentRepository;
     private final IncidentStateMachine machine;
 
     // CONSTRUCTOR
     // "When Spring creates my service, give me an IncidentRepository, and I'll store it."
-    public IncidentService(IncidentRepository incidentRepository, UserRepository userRepository, StatusHistoryRepository statusHistoryRepository, IncidentStateMachine machine){
+    public IncidentService(IncidentRepository incidentRepository, UserRepository userRepository, StatusHistoryRepository statusHistoryRepository, CommentRepository commentRepository, IncidentStateMachine machine){
         this.incidentRepository = incidentRepository;
         this.userRepository = userRepository;
         this.statusHistoryRepository = statusHistoryRepository;
+        this.commentRepository = commentRepository;
         this.machine = machine;
     }
 
@@ -70,7 +76,7 @@ public class IncidentService {
 
     }
 
-    //METHOD
+    //METHOD - HELPER
     private IncidentDetail toDetail(Incident incident){
 
         User reporter = incident.getReporterId();
@@ -92,6 +98,17 @@ public class IncidentService {
             reporter.getEmail(),
             assignee != null ? assignee.getId() : null,
             assignee != null ? assignee.getEmail() : null
+        );
+    }
+    //METHOD - HELPER
+    private CommentResponse toCommentResponse(Comment c){
+        User author = c.getAuthorId();
+        return new CommentResponse(
+            c.getId(), 
+            c.getBody(),
+            author != null ? author.getId() : null,
+            author != null ? author.getEmail() : null,
+            c.getCreatedAt()
         );
     }
 
@@ -152,7 +169,6 @@ public class IncidentService {
         statusHistoryRepository.save(historyRow);
 
         incidentRepository.flush();
-        //There is a chance this might not be needed. Adding it for safety.
 
         return toDetail(incident);
 
@@ -205,7 +221,6 @@ public class IncidentService {
         }
 
         incidentRepository.flush();
-        //There is a chance this might not be needed. Adding it for safety.
 
         return toDetail(incident);
     }
@@ -237,6 +252,41 @@ public class IncidentService {
         Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
 
         incidentRepository.delete(incident);
+
+    }
+
+    //METHOD
+    @Transactional 
+    public CommentResponse addComment(Long incidentId, CreateCommentRequest req, Long userId){
+
+        // Loading the incident is the existence check. It's what turns "comment on 9999" into a 404 instead of a foreign-key 500.
+        Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
+
+        User author = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+
+        Comment saved = commentRepository.save(new Comment(incident, author, req.body()));
+
+        return toCommentResponse(saved);
+
+    }
+
+    //METHOD
+    @Transactional(readOnly = true)
+    public List<CommentResponse> comments(Long incidentId){
+
+        if(!incidentRepository.existsById(incidentId)){
+            throw new IncidentNotFoundException(incidentId);
+        }
+
+        List<Comment> rows = commentRepository.findByIncidentIdOrderByCreatedAtAsc(incidentId);
+
+        List<CommentResponse> results = new ArrayList<>();
+
+        for (Comment c : rows){
+            results.add(toCommentResponse(c));
+        }
+
+        return results;
 
     }
 

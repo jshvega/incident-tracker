@@ -25,7 +25,7 @@ public class Comment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "incident_id", nullable = false)
-    private Incident incidentId;
+    private Incident incident;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = true)
@@ -37,14 +37,21 @@ public class Comment {
     private OffsetDateTime createdAt;
 
 
-
+    // CONSTRUCTOR
     protected Comment(){
     }
+    public Comment(Incident incident, User author, String body){
+        this.incident = incident;
+        this.authorId = author;
+        this.body = body;
+    }
+
+
     public Long getId(){
         return id;
     } 
-    public Incident getIncidentId(){
-        return incidentId;
+    public Incident getIncident(){
+        return incident;
     } 
     public User getAuthorId(){
         return authorId;

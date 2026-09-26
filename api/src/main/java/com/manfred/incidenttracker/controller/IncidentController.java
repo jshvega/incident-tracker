@@ -15,6 +15,8 @@ import java.net.URI;
 import java.util.List;
 
 import com.manfred.incidenttracker.dto.AssignIncidentRequest;
+import com.manfred.incidenttracker.dto.CommentResponse;
+import com.manfred.incidenttracker.dto.CreateCommentRequest;
 import com.manfred.incidenttracker.dto.CreateIncidentRequest;
 import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
@@ -112,6 +114,23 @@ public class IncidentController {
 
         return ResponseEntity.noContent().build();
 
+    }
+
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<CommentResponse> comment(@PathVariable Long id, @Valid @RequestBody CreateCommentRequest req, @RequestHeader("X-User-Id") Long userId){
+
+        CommentResponse comment = incidentService.addComment(id, req, userId);
+
+        URI location = URI.create("/incidents/" + id + "/comments");
+        // the collection URL is the real place a client can go to read the comment back
+
+        return ResponseEntity.created(location).body(comment);
+
+    }
+
+    @GetMapping("/{id}/comments")
+    public List<CommentResponse> comments(@PathVariable Long id){
+        return incidentService.comments(id);
     }
 
 }
