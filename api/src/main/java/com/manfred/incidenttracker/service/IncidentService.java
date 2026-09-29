@@ -15,6 +15,7 @@ import com.manfred.incidenttracker.dto.IncidentDetail;
 import com.manfred.incidenttracker.dto.IncidentResponse;
 import com.manfred.incidenttracker.dto.StatusHistoryEntry;
 import com.manfred.incidenttracker.dto.UpdateIncidentRequest;
+import com.manfred.incidenttracker.dto.UserSummary;
 import com.manfred.incidenttracker.entity.Comment;
 import com.manfred.incidenttracker.entity.Incident;
 import com.manfred.incidenttracker.entity.Status;
@@ -77,10 +78,20 @@ public class IncidentService {
     }
 
     //METHOD - HELPER
+    private UserSummary userToUserSummary(User u){
+
+        if(u == null) return null;
+        
+        Long userId = u.getId();
+        String userEmail = u.getEmail();
+        return new UserSummary(userId, userEmail);
+        
+    }
+    //METHOD - HELPER
     private IncidentDetail toDetail(Incident incident){
 
-        User reporter = incident.getReporterId();
-        User assignee = incident.getAssigneeId();
+        User reporter = incident.getReporter();
+        User assignee = incident.getAssignee();
 
         return new IncidentDetail(
             incident.getId(),
@@ -94,20 +105,17 @@ public class IncidentService {
             incident.getUpdatedAt(),
             incident.getResolvedAt(),
             incident.getDueAt(),
-            reporter.getId(),
-            reporter.getEmail(),
-            assignee != null ? assignee.getId() : null,
-            assignee != null ? assignee.getEmail() : null
+            userToUserSummary(reporter),
+            userToUserSummary(assignee)
         );
     }
     //METHOD - HELPER
     private CommentResponse toCommentResponse(Comment c){
-        User author = c.getAuthorId();
+        User author = c.getAuthor();
         return new CommentResponse(
             c.getId(), 
             c.getBody(),
-            author != null ? author.getId() : null,
-            author != null ? author.getEmail() : null,
+            userToUserSummary(author),
             c.getCreatedAt()
         );
     }
@@ -193,8 +201,7 @@ public class IncidentService {
             results.add(new StatusHistoryEntry(
                 item.getFromStatus().name(), 
                 item.getToStatus().name(), 
-                user != null ? user.getId() : null,
-                user != null ? user.getEmail() : null,
+                userToUserSummary(user),
                 item.getChangedAt())
             );
         }
@@ -211,10 +218,10 @@ public class IncidentService {
         Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
 
         if(reqUpdate.title() != null){
-            incident.setIncidentTitle(reqUpdate.title());
+            incident.setTitle(reqUpdate.title());
         }
         if(reqUpdate.description() != null){
-            incident.setIncidentDescription(reqUpdate.description());
+            incident.setDescription(reqUpdate.description());
         }
         if(reqUpdate.severity() != null){
             incident.setIncidentSeverity(reqUpdate.severity());

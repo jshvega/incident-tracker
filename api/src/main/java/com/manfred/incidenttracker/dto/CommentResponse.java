@@ -5,8 +5,7 @@ import java.time.OffsetDateTime;
 public record CommentResponse(
     Long id,
     String body,
-    Long authorId,
-    String authorEmail,
+    UserSummary author,
     OffsetDateTime createdAt
 ){
 }

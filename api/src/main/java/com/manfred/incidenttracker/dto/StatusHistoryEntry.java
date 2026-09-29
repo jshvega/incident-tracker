@@ -5,7 +5,6 @@ import java.time.OffsetDateTime;
 public record StatusHistoryEntry(
     String fromStatus, 
     String toStatus, 
-    Long changedByUserId, 
-    String userEmail,
+    UserSummary changedByUser,
     OffsetDateTime changedAt) {
 }

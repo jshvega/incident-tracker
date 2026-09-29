@@ -29,7 +29,7 @@ public class Comment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = true)
-    private User authorId;
+    private User author;
 
     private String body;
 
@@ -42,7 +42,7 @@ public class Comment {
     }
     public Comment(Incident incident, User author, String body){
         this.incident = incident;
-        this.authorId = author;
+        this.author = author;
         this.body = body;
     }
 
@@ -53,8 +53,8 @@ public class Comment {
     public Incident getIncident(){
         return incident;
     } 
-    public User getAuthorId(){
-        return authorId;
+    public User getAuthor(){
+        return author;
     } 
     public String getBody(){
         return body;

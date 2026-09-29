@@ -41,11 +41,11 @@ public class Incident {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reporter_id", nullable = false)
-    private User reporterId;
+    private User reporter;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id", nullable = true)
-    private User assigneeId;
+    private User assignee;
 
     private Integer slaMinutes;
 
@@ -68,7 +68,7 @@ public class Incident {
         this.title = title;
         this.description = description;
         this.incidentSeverity = severity;
-        this.reporterId = reporter;
+        this.reporter = reporter;
         this.slaMinutes = slaMinutes;
         this.dueAt = dueAt;
         
@@ -76,7 +76,7 @@ public class Incident {
 
     }
     public void setAssignee(User assignee){
-        this.assigneeId = assignee;
+        this.assignee = assignee;
     }
 
 
@@ -96,11 +96,11 @@ public class Incident {
     public Status getIncidentStatus(){
         return incidentStatus;
     }
-    public User getReporterId(){
-        return reporterId;
+    public User getReporter(){
+        return reporter;
     }
-    public User getAssigneeId(){
-        return assigneeId;
+    public User getAssignee(){
+        return assignee;
     }
     public Integer getSlaMinutes(){
         return slaMinutes;
@@ -120,10 +120,10 @@ public class Incident {
 
 
     // SETTERS
-    public void setIncidentTitle(String title){
+    public void setTitle(String title){
         this.title = title;
     }
-    public void setIncidentDescription(String description){
+    public void setDescription(String description){
         this.description = description;
     }
     public void setIncidentSeverity(Severity incidentSeverity){

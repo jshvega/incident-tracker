@@ -14,8 +14,6 @@ public record IncidentDetail(
     OffsetDateTime updatedAt, 
     OffsetDateTime resolvedAt, 
     OffsetDateTime dueAt, 
-    Long reporterId,
-    String reporterEmail, 
-    Long assigneeId,
-    String assigneeEmail){
+    UserSummary reporter, 
+    UserSummary assignee){
 }
