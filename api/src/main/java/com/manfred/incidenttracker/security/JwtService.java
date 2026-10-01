@@ -15,7 +15,6 @@ import com.manfred.incidenttracker.entity.User;
 
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 
