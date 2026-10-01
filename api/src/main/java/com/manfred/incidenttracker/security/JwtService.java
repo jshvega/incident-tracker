@@ -1,6 +1,5 @@
 package com.manfred.incidenttracker.security;
 
-import java.security.Key;
 import java.util.Date;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
@@ -16,6 +15,8 @@ import com.manfred.incidenttracker.entity.User;
 
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 
 
@@ -41,15 +42,24 @@ public class JwtService {
                         .subject(idString)
                         .claim("role", user.getUserRole().name())
                         .issuedAt(Date.from(now))
-                        .issuedAt(Date.from(exp))
+                        .expiration(Date.from(exp))
                         .signWith(key)
                         .compact();
 
         return new LoginResponse(token, exp);
+
+        // Computing now once and deriving exp from it. Two separate Instant.now() calls can make exp - iat come out to 3599 or 3601. Truncating to seconds keeps the expiresAt in the response equal to the exp claim.
+    }
+
+    public AuthUser parse(String token){
+        
+        Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+
+        Long id = Long.valueOf(claims.getSubject());
+
+        Role role = Role.valueOf(claims.get("role", String.class));
+
+        return new AuthUser(id, role);
     }
 
 }
-
-/* 
-Computing now once and deriving exp from it. Two separate Instant.now() calls can make exp - iat come out to 3599 or 3601. Truncating to seconds keeps the expiresAt in the response equal to the exp claim.
-*/

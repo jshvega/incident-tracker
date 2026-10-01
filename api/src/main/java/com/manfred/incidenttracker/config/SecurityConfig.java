@@ -7,9 +7,28 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.manfred.incidenttracker.security.JwtAccessDeniedHandler;
+import com.manfred.incidenttracker.security.JwtAuthenticationEntryPoint;
+import com.manfred.incidenttracker.security.JwtAuthenticationFilter;
+import com.manfred.incidenttracker.security.JwtService;
 
 @Configuration //Tells Spring that the class contains config, not logic.
 public class SecurityConfig {
+
+    // FIELDS
+    private final JwtService jwtService;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
+
+    // CONSTRUCTOR
+    public SecurityConfig(JwtService jwtService, JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint, JwtAccessDeniedHandler jwtAccessDeniedHandler){
+        this.jwtService = jwtService;
+        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+        this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
+    }
+
 
     // METHOD
     // Spring hand http (a builder), the method configures it and returns http.build()
@@ -24,6 +43,9 @@ public class SecurityConfig {
             .requestMatchers("/auth/**", "/error").permitAll()
             .anyRequest().authenticated()
         );
+
+        http.addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
+        http.exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint).accessDeniedHandler(jwtAccessDeniedHandler));
 
         return http.build();
 
