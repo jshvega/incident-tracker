@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.manfred.incidenttracker.dto.LoginRequest;
+import com.manfred.incidenttracker.dto.LoginResponse;
 import com.manfred.incidenttracker.dto.RegisterRequest;
 import com.manfred.incidenttracker.dto.RegisterResponse;
 import com.manfred.incidenttracker.service.AuthService;
@@ -27,6 +29,12 @@ public class AuthController {
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest req){
         RegisterResponse res = authService.register(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest req){
+        LoginResponse res = authService.login(req);
+        return ResponseEntity.ok(res);
     }
 
 }
