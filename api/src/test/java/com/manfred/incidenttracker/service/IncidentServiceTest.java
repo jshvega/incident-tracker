@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.manfred.incidenttracker.domain.IncidentStateMachine;
 import com.manfred.incidenttracker.entity.User;
+import com.manfred.incidenttracker.security.AuthUser;
 import com.manfred.incidenttracker.exception.IllegalTransitionException;
 import com.manfred.incidenttracker.exception.IncidentNotFoundException;
 import com.manfred.incidenttracker.repository.CommentRepository;
@@ -70,10 +71,11 @@ public class IncidentServiceTest {
         // Stubs
         when(incidentRepository.findById(1L)).thenReturn(Optional.of(incident));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(machine.isRoleAllowed(Status.open, Status.investigating, Role.admin)).thenReturn(true);
 
 
         /* ------------- ACT ------------- */
-        service.transition(1L, Status.investigating, 1L);
+        service.transition(1L, Status.investigating, new AuthUser(1L, Role.admin));
 
 
         /* ------------- ASSERT / VERIFY ------------- */
@@ -109,7 +111,7 @@ public class IncidentServiceTest {
 
 
         /* ------------- ASSERT / VERIFY ------------- */
-        assertThrows(IllegalTransitionException.class, () -> service.transition(1L, Status.resolved, 1L));
+        assertThrows(IllegalTransitionException.class, () -> service.transition(1L, Status.resolved, new AuthUser(1L, Role.admin)));
         verify(statusHistoryRepository, never()).save(any());
 
     }
@@ -127,7 +129,7 @@ public class IncidentServiceTest {
 
 
         /* ------------- ASSERT / VERIFY ------------- */
-        assertThrows(IncidentNotFoundException.class, () -> service.transition(1L, Status.investigating, 1L));
+        assertThrows(IncidentNotFoundException.class, () -> service.transition(1L, Status.investigating, new AuthUser(1L, Role.admin)));
         verify(statusHistoryRepository, never()).save(any());
 
     }

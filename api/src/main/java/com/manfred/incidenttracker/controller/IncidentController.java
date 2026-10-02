@@ -79,7 +79,7 @@ public class IncidentController {
     @Valid @RequestBody TransitionRequest transitionRequest,
     @AuthenticationPrincipal AuthUser user) {
 
-        IncidentDetail detail = incidentService.transition(id, transitionRequest.status(), user.id());
+        IncidentDetail detail = incidentService.transition(id, transitionRequest.status(), user);
 
         return detail;
 
@@ -91,18 +91,18 @@ public class IncidentController {
     }
 
     @PatchMapping("/{id}")
-    public IncidentDetail update(@PathVariable Long id, @Valid @RequestBody UpdateIncidentRequest req){
+    public IncidentDetail update(@PathVariable Long id, @Valid @RequestBody UpdateIncidentRequest req, @AuthenticationPrincipal AuthUser user){
 
-        IncidentDetail update = incidentService.update(id, req);
+        IncidentDetail update = incidentService.update(id, req, user);
 
         return update;
 
     }
 
     @PatchMapping("/{id}/assignee")
-    public IncidentDetail assign(@PathVariable Long id, @Valid @RequestBody AssignIncidentRequest req){
+    public IncidentDetail assign(@PathVariable Long id, @Valid @RequestBody AssignIncidentRequest req, @AuthenticationPrincipal AuthUser user){
 
-        IncidentDetail assign = incidentService.assign(id, req);
+        IncidentDetail assign = incidentService.assign(id, req, user);
 
         return assign;
 

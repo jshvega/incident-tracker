@@ -18,15 +18,19 @@ import com.manfred.incidenttracker.dto.UpdateIncidentRequest;
 import com.manfred.incidenttracker.dto.UserSummary;
 import com.manfred.incidenttracker.entity.Comment;
 import com.manfred.incidenttracker.entity.Incident;
+import com.manfred.incidenttracker.entity.Role;
 import com.manfred.incidenttracker.entity.Status;
 import com.manfred.incidenttracker.entity.StatusHistory;
 import com.manfred.incidenttracker.entity.User;
+import com.manfred.incidenttracker.exception.ForbiddenException;
 import com.manfred.incidenttracker.exception.IncidentNotFoundException;
+import com.manfred.incidenttracker.exception.InvalidAssigneeException;
 import com.manfred.incidenttracker.exception.UserNotFoundException;
 import com.manfred.incidenttracker.repository.CommentRepository;
 import com.manfred.incidenttracker.repository.IncidentRepository;
 import com.manfred.incidenttracker.repository.StatusHistoryRepository;
 import com.manfred.incidenttracker.repository.UserRepository;
+import com.manfred.incidenttracker.security.AuthUser;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -119,6 +123,21 @@ public class IncidentService {
             c.getCreatedAt()
         );
     }
+    //METHOD - HELPER
+    private boolean isAdmin(AuthUser actor){
+        return actor.role().equals(Role.admin);
+    }
+    //METHOD - HELPER
+    private boolean isReporterOf(Incident incident, AuthUser actor){
+        return incident.getReporter().getId().equals(actor.id());
+    }
+    //METHOD - HELPER
+    private boolean isAssigneeOf(Incident incident, AuthUser actor){
+        if(incident.getAssignee() == null){
+            return false;
+        }
+        return incident.getAssignee().getId().equals(actor.id());
+    }
 
     //METHOD
     @Transactional(readOnly = true)
@@ -154,15 +173,26 @@ public class IncidentService {
 
     //METHOD
     @Transactional 
-    public IncidentDetail transition(Long incidentId, Status to, Long userId){
+    public IncidentDetail transition(Long incidentId, Status to, AuthUser actor){
 
         Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
 
-        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-
-        machine.validateTransition(incident.getIncidentStatus(), to);
+        User user = userRepository.findById(actor.id()).orElseThrow(() -> new UserNotFoundException(actor.id()));
 
         Status from = incident.getIncidentStatus();
+
+        // Assignee role, but not this incident's assignee.
+        if(actor.role() == Role.assignee && !isAssigneeOf(incident, actor)){
+            throw new ForbiddenException("You're not assigned to this incident.");
+        }
+
+        // Edge not legal.
+        machine.validateTransition(from, to);
+
+        // Edge legal, role not allowed on it.
+        if(!machine.isRoleAllowed(from, to, actor.role())){
+            throw new ForbiddenException("Role "+actor.role()+" can't move "+from+" to "+to+".");
+        }
 
         incident.setIncidentStatus(to);
 
@@ -212,10 +242,14 @@ public class IncidentService {
 
     //METHOD
     @Transactional 
-    public IncidentDetail update(Long incidentId, UpdateIncidentRequest reqUpdate){
+    public IncidentDetail update(Long incidentId, UpdateIncidentRequest reqUpdate, AuthUser actor){
 
         // Load the incident, or throw error.
         Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
+
+        if(!(isAdmin(actor) || isAssigneeOf(incident, actor) || isReporterOf(incident, actor))){
+            throw new ForbiddenException("You do not have permission to make this update.");
+        }
 
         if(reqUpdate.title() != null){
             incident.setTitle(reqUpdate.title());
@@ -234,14 +268,28 @@ public class IncidentService {
 
     //METHOD
     @Transactional 
-    public IncidentDetail assign(Long incidentId, AssignIncidentRequest req){
+    public IncidentDetail assign(Long incidentId, AssignIncidentRequest req, AuthUser actor){
 
         Incident incident = incidentRepository.findById(incidentId).orElseThrow(() -> new IncidentNotFoundException(incidentId));
 
-        User assignee = null;
+        // Who may assign at all
+        if(actor.role() == Role.reporter){
+            throw new ForbiddenException("Reporters can't assigne incidents.");
+        }
+        if(actor.role() == Role.assignee){
+            boolean unassigned = incident.getAssignee() == null;
+            boolean targetIsSelf = actor.id().equals(req.assigneeId());
+            if(!(unassigned && targetIsSelf)){
+                throw new ForbiddenException("Assignees can only take unassigned incidents for themselves.");
+            }
+        }
 
+        User assignee = null;
         if(req.assigneeId() != null){
             assignee = userRepository.findById(req.assigneeId()).orElseThrow(() -> new UserNotFoundException(req.assigneeId()));
+            if(assignee.getUserRole() == Role.reporter){
+                throw new InvalidAssigneeException(assignee.getId(), assignee.getUserRole());
+            }
         }
 
         incident.setAssignee(assignee);
