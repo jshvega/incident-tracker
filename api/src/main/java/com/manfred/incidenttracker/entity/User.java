@@ -62,4 +62,8 @@ public class User {
         return createdAt;
     }
 
+    public void setUserRole(Role userRole){
+        this.userRole = userRole;
+    }
+
 }

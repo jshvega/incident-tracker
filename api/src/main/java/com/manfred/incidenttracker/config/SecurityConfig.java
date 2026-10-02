@@ -13,6 +13,7 @@ import com.manfred.incidenttracker.security.JwtAccessDeniedHandler;
 import com.manfred.incidenttracker.security.JwtAuthenticationEntryPoint;
 import com.manfred.incidenttracker.security.JwtAuthenticationFilter;
 import com.manfred.incidenttracker.security.JwtService;
+import org.springframework.http.HttpMethod;
 
 @Configuration //Tells Spring that the class contains config, not logic.
 public class SecurityConfig {
@@ -41,6 +42,8 @@ public class SecurityConfig {
         http.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.authorizeHttpRequests(authHttpReq -> authHttpReq
             .requestMatchers("/auth/**", "/error").permitAll()
+            .requestMatchers(HttpMethod.DELETE, "/incidents/**").hasRole("ADMIN")
+            .requestMatchers("/users/**").hasRole("ADMIN")
             .anyRequest().authenticated()
         );
 
