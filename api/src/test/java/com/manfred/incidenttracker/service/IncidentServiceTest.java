@@ -35,7 +35,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.manfred.incidenttracker.dto.AssignIncidentRequest;
 import com.manfred.incidenttracker.dto.UpdateIncidentRequest;
 import com.manfred.incidenttracker.exception.ForbiddenException;
-import com.manfred.incidenttracker.security.AuthUser;
 
 
 

@@ -143,3 +143,50 @@ Spring Boot 4.1.1 project in /api; GET /incidents returning six rows from Supaba
 - Three flush() calls not yet fully justified. I added them for safety, but certain if they are needed.
 - setIncidentTitle / setIncidentDescription naming.
 - Test 2 uses open → closed, which is legal in the real machine.
+
+
+---
+
+
+## Phase 4
+
+### Built
+- Spring Security filter chain (stateless, CSRF off)
+- Registration with BCrypt
+- Login issuing HS256 JWTs via jjwt
+- Custom OncePerRequestFilter
+- 401/403 ProblemDetail handlers
+- AuthUser principal replacing X-User-Id
+- Admin-only URL rules
+- PATCH /users/{id}/role
+- Ownership rules in the service
+- Per-transition roles in the state machine
+- 6 new tests
+
+### Reps
+- (a) JWT by hand in plain JDK, then a concept-level walkthrough. 
+- (b) signed vs encrypted, request walkthrough, leaked secret.
+
+### What was hard 
+- Mapping what each piece does conceptually
+- A lot of syntax I did not know and that I'm still learning
+- Logic: 
+    Methods buried in syntax I'm not super familiar with, so the logic gets fuzzy even if its simple
+    Still landing how each piece of the puzzle works and how it all connects, so writing some of the logic was tricky given the context
+- The 404-turned-403 via /error
+- Kept fogetting little details like:
+    hasRole case mismatch
+    A @PatchMapping with no path
+    Forgetting exp on the token
+- The from-scratch JWT rep (rescoped to concept-level)
+
+### What clicked
+- The secret never leaves the server
+- A valid signature isn't a valid token
+- Filter vs advice error paths
+- One curl can produce two requests
+- The token proves identity, the rules decide access
+
+### Scope cuts
+- Security slice tests deferred to Phase 13
+- Full code reps replaced by concept reps for library-handled code
