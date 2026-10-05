@@ -42,6 +42,7 @@ public class SecurityConfig {
         http.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.authorizeHttpRequests(authHttpReq -> authHttpReq
             .requestMatchers("/auth/**", "/error").permitAll()
+            .requestMatchers(HttpMethod.GET, "/actuator/health/liveness").permitAll()
             .requestMatchers(HttpMethod.DELETE, "/incidents/**").hasRole("ADMIN")
             .requestMatchers("/users/**").hasRole("ADMIN")
             .anyRequest().authenticated()
