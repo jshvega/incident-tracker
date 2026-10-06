@@ -11,7 +11,7 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 RUN useradd --system app
 COPY --from=build /app/target/app.jar app.jar
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=60"
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=46 -XX:TieredStopAtLevel=1"
 EXPOSE 8080
 USER app
 ENTRYPOINT ["java", "-jar", "app.jar"]
