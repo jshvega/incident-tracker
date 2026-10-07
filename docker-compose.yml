@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=incident_tracker
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password123
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d:ro 
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -h localhost -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "5432:5432"
+  api:
+    build: ./api
+    env_file: 
+      - ./api/.env
+    environment:
+      - DB_URL=jdbc:postgresql://db:5432/incident_tracker
+      - DB_USERNAME=admin
+      - DB_PASSWORD=password123
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+volumes:
+  pgdata:
