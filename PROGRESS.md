@@ -190,3 +190,41 @@ Spring Boot 4.1.1 project in /api; GET /incidents returning six rows from Supaba
 ### Scope cuts
 - Security slice tests deferred to Phase 13
 - Full code reps replaced by concept reps for library-handled code
+
+
+---
+
+
+## Phase 5
+
+### Built
+- A multi-stage Dockerfile (JRE, non-root, cached dependencies)
+- .dockerignore
+- env-var config with no secret defaults
+- A prod profile
+- The Actuator liveness check
+- Compose (postgres:17 from /db plus api at Render’s limits)
+- Live Render deploy
+
+### Measured
+- Image 1.13 GB → 584 MB
+- Rebuild 30s → 7.5 s
+- Heap 46% (non-heap about 240 MB)
+- Startup 155s → 87s locally, about 60 to 70 s on Render
+- Cold request about 74 s, warm about 0.18 s
+
+### Reps
+- (b) image vs container, passed
+- (a) swapped for a change task: Compose api at Render’s limits with the prod profile, passed
+
+### Roadblocks 
+- Compose profiles vs Spring profiles
+- Heap vs non-heap (the 10% surprise)
+- The prod admin password exposed through the public seed file, which led to the prod wipe and JWT secret rotation
+
+### What clicked
+- Layer cache order
+- Memory usage shows the allowance, not the need
+- Liveness vs readiness
+- One image, many environments
+- Dev credentials can be public, prod credentials never
