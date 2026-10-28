@@ -1,10 +1,10 @@
 # Incident Tracker
 
-A role-based incident management API for platform and SRE teams, built with **Java 21 and Spring Boot**, containerized with Docker, and deployed on Render with PostgreSQL on Supabase.
+A role-based incident management system for platform and SRE teams. The API is built with **Java 21 and Spring Boot**, containerized with Docker, and deployed on Render with PostgreSQL on Supabase. A **Python SLA engine** finds incidents that missed their deadline and escalates them automatically.
 
-Users report incidents, assign them, and move them through a lifecycle (`open → investigating → resolved → closed`). Every action is checked against the user's role, and every status change is recorded in an audit history.
+Users report incidents, assign them, and move them through a lifecycle (`open → investigating → resolved → closed`). Every action is checked against the user's role, and every status change is recorded in an audit history. When an incident misses its deadline, the SLA engine raises its severity and records the escalation, with no human involved.
 
-**Status:** the synchronous core (data model, REST API, auth, containerization, production deploy) is complete and live. It is also the foundation for a larger system: a serverless SLA engine on AWS that escalates overdue incidents automatically. See [Roadmap](#roadmap).
+**Status:** the synchronous core (data model, REST API, auth, containerization, production deploy) is complete and live. The SLA engine is built and verified locally against Postgres; running it on AWS Lambda on a schedule is the next step. See [Roadmap](#roadmap).
 
 **Live API:** https://incident-tracker-5zpj.onrender.com
 > Free hosting: the first request after 15 idle minutes takes about 75 seconds while the service wakes up. Every request after that takes about 0.2 seconds. See [Known limitations](#known-limitations).
@@ -12,6 +12,8 @@ Users report incidents, assign them, and move them through a lifecycle (`open �
 ---
 
 ## What it does
+
+### The API
 
 - **Authentication:** registration and login with BCrypt-hashed passwords and stateless JWTs.
 - **Three roles with genuinely different permissions:**
@@ -40,25 +42,57 @@ Users report incidents, assign them, and move them through a lifecycle (`open �
 | PATCH | `/users/{id}/role` | Admin |
 | GET | `/actuator/health/liveness` | Public |
 
+### The SLA engine
+
+- **Finds breached incidents:** open or investigating incidents past their `due_at` that haven't been flagged yet.
+- **Escalates on a fixed ladder:** low → high, medium → high, high → critical. Critical incidents are flagged without a severity change.
+- **Records what it did:** sets `sla_breached` on the incident and writes an `escalations` row (previous severity, new severity, reason).
+- **Leaves the lifecycle alone:** status and assignee belong to the API and its rules.
+- **Is safe to run any number of times:** see [Design decisions](#design-decisions).
+- **Logs structured JSON:** one line per incident and one summary per run, all sharing a `run_id`, so a single run can be pulled up on its own:
+
+```json
+{"level": "INFO", "msg": "sweep_complete", "run_id": "e27c064ce2d440fb8250b09cdb8789b5", "candidates": 4, "escalated": 3, "breach_only": 1, "skipped": 0, "failed": 0, "duration_ms": 46}
+```
+
 ---
 
 ## Tech stack
 
 | Layer | Choice |
 |---|---|
-| Language / framework | Java 21, Spring Boot 4, Spring Data JPA (Hibernate 7) |
+| API | Java 21, Spring Boot 4, Spring Data JPA (Hibernate 7) |
 | Security | Spring Security, a custom JWT filter (jjwt, HS256), BCrypt |
+| SLA engine | Python 3.12, pg8000 (pure-Python Postgres driver), standard-library logging |
 | Database | PostgreSQL 17 (Supabase in production, Docker Compose locally) |
-| Build | Maven |
+| Build | Maven (API), pip with pinned requirements (SLA engine) |
 | Container | Multi-stage Docker image (Eclipse Temurin 21 JRE, non-root) |
 | Hosting | Render (free web service, 512 MB RAM, 0.1 CPU) |
-| Tests | JUnit 5 and Mockito |
+| Tests | JUnit 5 and Mockito (API), fixture-driven verification (SLA engine) |
+
+---
+
+## Repository layout
+
+```
+api/              Spring Boot API
+lambdas/sla/      SLA engine, with a test fixture in fixtures/
+db/               SQL schema, migrations and dev seed data, loaded by Docker Compose
+docker-compose.yml
+PROGRESS.md       a log of each build phase
+```
 
 ---
 
 ## Design decisions
 
 Each decision was made before the code was written, with the alternatives and tradeoffs documented. The most interesting ones:
+
+### The split
+
+**Synchronous work in Java, scheduled work in Python.** The API answers requests; the SLA engine runs on a timer. Keeping scheduled work out of Spring (no `@Scheduled` anywhere) keeps the API a pure request handler and lets the sweep run serverless. The two halves share a database, not a call graph: the sweep talks to Postgres directly and never calls the API.
+
+### The API
 
 **A custom JWT filter instead of Spring's OAuth2 resource server.** The resource server would have hidden the exact mechanism this project set out to build: read the header, verify the signature, check expiry, and populate the security context. In production I would use the resource server. Here I wanted to own the mechanism.
 
@@ -68,9 +102,23 @@ Each decision was made before the code was written, with the alternatives and tr
 
 **One JWT secret per environment.** A token minted by the local stack is rejected by production (verified). Sharing a secret would let anyone who can create an admin locally mint a token production accepts.
 
-**Development never touches production data.** Locally, the app runs against Postgres in Docker Compose, built from scratch from the SQL files in `/db`. Supabase is production only. Hibernate runs in `validate` mode, so any drift between the SQL files and the entities stops the app from booting.
+**Development never touches production data.** Locally, everything runs against Postgres in Docker Compose, built from scratch from the versioned SQL files in `/db`. Supabase is production only. Hibernate runs in `validate` mode, so any drift between the SQL files and the entities stops the app from booting.
 
 **A liveness health check that ignores the database.** Render restarts the service when its health check fails. A check that included the database would restart a healthy app every time the database blipped, which fixes nothing.
+
+### The SLA engine
+
+**Idempotent by construction.** A scheduler can fire twice, runs can overlap, and a failed run can be retried, so the sweep has to be safe to repeat. The guard is a database column, `sla_breached`, checked and set in the same UPDATE. Verified two ways: running the sweep twice in a row (the second run finds nothing), and forcing two runs to overlap (the second read the same four incidents before the first committed, and changed none of them).
+
+**A flag instead of a moved deadline.** An earlier design pushed `due_at` forward after each escalation. That would have erased the record of when the breach happened, so `due_at` stays the real deadline. The flag records the one thing that can't be derived from it: that the sweep already acted.
+
+**One transaction per incident.** The severity change and the escalation record commit together or not at all. A failing incident is rolled back and logged without stopping the others, and a half-finished run is harmless because the next one picks up the rest.
+
+**The database is the only clock.** Every timestamp and comparison uses Postgres `now()`, so a laptop, a Lambda and the database can never disagree about what time it is.
+
+**A pure-Python database driver.** pg8000 installs the same way on Windows and on Lambda's Linux. The usual choice, psycopg2, ships compiled C that has to be built for Lambda specifically, a classic first-deploy failure. Its speed advantage doesn't matter at a handful of rows per run.
+
+**Lambda-shaped from the start.** The sweep is a `handler(event, context)`, with the database connection opened outside it, so warm invocations reuse one connection instead of opening a new one every time.
 
 ---
 
@@ -87,6 +135,8 @@ The free tier is small, so this was measured rather than guessed. All numbers co
 ---
 
 ## Run it locally
+
+### The API
 
 Requirements: Docker Desktop.
 
@@ -113,6 +163,29 @@ curl localhost:8080/incidents -H "Authorization: Bearer $TOKEN"
 
 To reset the local database to its seed state: `docker compose down -v && docker compose up`.
 
+### The SLA engine
+
+Requirements: Python 3.12, and the database from the step above running (`docker compose up -d db` is enough).
+
+```bash
+cd lambdas/sla
+python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+cp .env.example .env                 # fill in the local database values from docker-compose.yml
+```
+
+Load the fixture, which **replaces all incidents** with eight test cases (one per scenario: overdue at each severity, not yet due, resolved, closed, already breached), then run the sweep:
+
+```bash
+docker compose exec -T db psql -U admin -d incident_tracker < fixtures/sweep_cases.sql
+python sweep.py
+```
+
+On Windows PowerShell, load the fixture with `Get-Content fixtures/sweep_cases.sql | docker compose exec -T db psql -U admin -d incident_tracker`.
+
+The script calls the handler twice in one process, the way a warm Lambda would be invoked twice. The first run escalates three incidents and flags the critical one. The second finds nothing to do and reuses the same connection.
+
 ---
 
 ## Deployment
@@ -126,6 +199,8 @@ To reset the local database to its seed state: `docker compose down -v && docker
 
 Secrets exist only as environment variables on Render. Nothing secret is in the image or the repository. The `prod` profile sets INFO logging, turns SQL logging off, and sizes the connection pool and thread count for a 0.1 CPU instance.
 
+The SLA engine is not deployed yet. It will run on AWS Lambda (see [Roadmap](#roadmap)).
+
 ---
 
 ## Known limitations
@@ -133,42 +208,44 @@ Secrets exist only as environment variables on Render. Nothing secret is in the 
 These are deliberate tradeoffs of a zero-cost deployment, or work that is planned but not done yet.
 
 - **Cold starts.** The free instance sleeps after 15 idle minutes; the next request takes about 75 seconds.
-- **Database pausing.** Supabase pauses free projects after 7 days without queries. Until the SLA engine exists (it queries the database every few minutes), this is handled manually.
+- **Database pausing.** Supabase pauses free projects after 7 days without queries. Once the SLA engine runs on a schedule in AWS, its queries keep the database awake. Until then, this is handled manually.
 - **No production memory metrics.** Render's free tier doesn't expose them, so memory was measured locally at identical limits.
 - **No token revocation.** Covered under design decisions.
-- **Test coverage is focused, not complete.** The state machine and the service's role and ownership rules are unit tested. Tests of the security wiring itself (401/403 responses, URL rules) are planned with CI.
-- **API only.** There is no frontend yet.
+- **One column written by both halves.** The API and the SLA engine both write an incident's severity, and Hibernate rewrites every mapped column on save. An API save that overlaps a sweep could silently undo an escalation. The window is milliseconds; the fix, optimistic locking with a `@Version` column, is planned.
+- **A dropped connection costs one run.** If the SLA engine's cached connection dies between invocations, that invocation fails and the next one reconnects. Retrying once after reconnecting is the upgrade if it ever matters.
+- **Test coverage is focused, not complete.** The API's state machine and the service's role and ownership rules are unit tested. The SLA engine is verified against a fixture covering every case, plus repeated and overlapping runs. Automated tests for the security wiring and for the SLA engine are planned with CI.
+- **No frontend yet.**
 
 ---
 
 ## Roadmap
 
-The core principle behind the full design: **synchronous, business-facing work runs in Java; scheduled and asynchronous work runs serverless on AWS.** What exists today is the synchronous half.
+The core principle behind the full design: **synchronous, business-facing work runs in Java; scheduled and asynchronous work runs serverless on AWS.** What exists today is the synchronous half, plus the SLA engine running locally.
 
 ```
-Today                                   Next
------                                   ----
-Client ──HTTPS/JWT──> Spring Boot API   EventBridge Scheduler ──> SLA Lambda (Python)
-                          │                                           │
-                          v                                           v
-                     PostgreSQL  <────────────────────────── escalates overdue incidents
+Today
+-----
+Client ──HTTPS/JWT──> Spring Boot API ──> PostgreSQL <── SLA engine (Python, run locally)
+
+Next
+----
+EventBridge Scheduler ──every N minutes──> SLA Lambda (the same code) ──> PostgreSQL
 ```
 
 Planned, in order:
 
-1. **SLA engine:** a Python job that finds incidents past their deadline and escalates them, built and verified locally first.
-2. **AWS:** the SLA engine on Lambda, first by hand, then entirely in **Terraform**, triggered by **EventBridge Scheduler**.
-3. **Event-driven notifications:** the API publishes an event when a critical incident is created; a second Lambda processes it.
-4. **LocalStack:** the AWS layer runnable and testable locally.
-5. **Next.js frontend** on Vercel.
-6. **CI/CD with GitHub Actions:** tests, image build to ghcr.io, deploy.
-7. **Kubernetes manifests**, tested on a local kind cluster.
+1. **AWS:** the SLA engine on Lambda, first by hand, then entirely in **Terraform**, triggered by **EventBridge Scheduler**.
+2. **Event-driven notifications:** the API publishes an event when a critical incident is created; a second Lambda processes it.
+3. **LocalStack:** the AWS layer runnable and testable locally.
+4. **Next.js frontend** on Vercel.
+5. **CI/CD with GitHub Actions:** tests, image build to ghcr.io, deploy.
+6. **Kubernetes manifests**, tested on a local kind cluster.
 
 ---
 
 ## How this was built
 
-This project is structured as deliberate practice. I started it with SQL and React experience and no hands-on Java, Spring, Docker, or cloud deployment. It is built in phases, and each phase follows the same loop: learn the concepts, decide the design with written tradeoffs, write the code, then rebuild the key pattern from a blank file without references.
+This project is structured as deliberate practice. I started it with SQL and React experience and no hands-on Java, Spring, Python, Docker, or cloud deployment. It is built in phases, and each phase follows the same loop: learn the concepts, decide the design with written tradeoffs, write the code, then rebuild the key pattern from a blank file without references.
 
 I wrote the project's code myself, with AI as a tutor and reviewer: it pointed me to official docs, questioned my decisions, reviewed what I wrote, and helped draft the documentation.
 
