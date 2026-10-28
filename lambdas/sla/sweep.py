@@ -16,7 +16,7 @@ class JsonFormatter(logging.Formatter):
         entry = {"level": record.levelname, "msg": record.getMessage()}
         entry.update(getattr(record, "fields", {}))   # custom keys
         if record.exc_info:
-            entry["exe"] = self.formatException(record.exc_info)
+            entry["exc"] = self.formatException(record.exc_info)
         return json.dumps(entry, default=str)
 
 
@@ -113,17 +113,35 @@ def setup_logging() -> None:
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
+def get_conn(run_id:str):
+    global conn
+    if conn is None:
+        conn = pg8000.dbapi.connect(**load_config())
+        log.info("db_connected", extra={"fields": {"run_id": run_id}})
+    return conn
+
+def handler(event, context):
+    global conn
+    run_id = context.aws_request_id if context else uuid.uuid4().hex
+
+    try:
+        counts = run_sweep(get_conn(run_id), run_id)
+        return counts
+    except Exception as e:
+        if isinstance(e, pg8000.dbapi.InterfaceError):
+            conn = None
+        log.exception("sweep_failed", extra={"fields": {"run_id": run_id, "error": str(e)}})
+        raise
+
+
+
+
+setup_logging()
+conn = None
+
 if __name__ == '__main__':
     from dotenv import load_dotenv
     load_dotenv()
 
-    setup_logging()
-
-    run_id = uuid.uuid4().hex
-
-    conn = pg8000.dbapi.connect(**load_config())
-
-    try:
-        run_sweep(conn, run_id)
-    finally:
-        conn.close()
+    handler(None, None)
+    handler(None, None)
