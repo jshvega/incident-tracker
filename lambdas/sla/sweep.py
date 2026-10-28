@@ -1,5 +1,26 @@
 import os
 import pg8000.dbapi
+import json
+import logging
+import sys
+import time
+import uuid
+
+
+
+
+log = logging.getLogger("sweep")
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        entry = {"level": record.levelname, "msg": record.getMessage()}
+        entry.update(getattr(record, "fields", {}))   # custom keys
+        if record.exc_info:
+            entry["exe"] = self.formatException(record.exc_info)
+        return json.dumps(entry, default=str)
+
+
+
 
 LADDER = {"low":"high", "medium":"high", "high":"critical", "critical":"critical"}
 
@@ -29,6 +50,9 @@ INSERT_ESCALATION_SQL = """
     INSERT INTO escalations (incident_id, previous_severity, new_severity, reason)
     VALUES (%s, %s::severity, %s::severity, %s)
 """
+
+
+
 
 def load_config() -> dict:
     return {
@@ -64,7 +88,8 @@ def escalate_one(conn, incident_id:int, severity:str) -> str:
         conn.commit()
         return "breach_only"
     
-def run_sweep(conn):
+def run_sweep(conn, run_id:str) -> dict:
+    start = time.perf_counter()
     candidates = fetch_candidates(conn)
     counts = {"escalated":0, "breach_only":0, "skipped":0, "failed":0}
 
@@ -73,23 +98,32 @@ def run_sweep(conn):
         try:
             outcome = escalate_one(conn, incident_id, severity)
             counts[outcome] += 1
-            print(incident_id, outcome)
+            log.info(outcome, extra={"fields": {"run_id": run_id, "incident_id": incident_id, "severity": severity}})
         except Exception as e:
             conn.rollback()
             counts["failed"] += 1
-            print(incident_id, "failed:", e)
+            log.exception("failed", extra={"fields": {"run_id": run_id, "incident_id": incident_id, "severity": severity, "error": str(e)}})
 
-    print(counts)
+    duration_ms = int((time.perf_counter() - start) * 1000)
+    log.info("sweep_complete", extra={"fields": {"run_id": run_id, "candidates": len(candidates), **counts, "duration_ms": duration_ms}})
     return counts
 
+def setup_logging() -> None:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
 if __name__ == '__main__':
     from dotenv import load_dotenv
     load_dotenv()
 
+    setup_logging()
+
+    run_id = uuid.uuid4().hex
+
     conn = pg8000.dbapi.connect(**load_config())
 
     try:
-        run_sweep(conn)
+        run_sweep(conn, run_id)
     finally:
         conn.close()
