@@ -228,3 +228,63 @@ Spring Boot 4.1.1 project in /api; GET /incidents returning six rows from Supaba
 - Liveness vs readiness
 - One image, many environments
 - Dev credentials can be public, prod credentials never
+
+
+---
+
+
+## Phase 6
+
+### Built
+- `lambdas/sla/`: Python 3.12 venv, `requirements.txt` (pg8000 + deps), `requirements-dev.txt` (python-dotenv), `.env.example`
+- `db/002_add_sla_breached.sql`: `sla_breached BOOLEAN NOT NULL DEFAULT false`, partial index recreated with `NOT sla_breached`
+- `fixtures/sweep_cases.sql`: 8 cases, timestamps relative to `now()` so it never ages
+- `sweep.py`: candidate SELECT → per-incident guarded UPDATE with RETURNING → escalations insert, one transaction per incident
+- JSON logging with `run_id` on every line, tracebacks included
+- Lambda shape: `handler(event, context)`, connection opened outside it and reused when warm
+
+### Decisions
+- pg8000: Pure Python, same install on Windows and Lambda
+- Boolean `sla_breached` as the guard: `due_at` stays the real deadline, a timestamp would duplicate it
+- Guarded UPDATE + RETURNING: The check and the write are one atomic step
+- One transaction per incident: One failure doesn't roll back the rest
+- Postgres `now()` as the only clock: Nothing to disagree about
+- Stdlib JSON logging: Ten lines, zero dependencies
+- Fixture verification: Pytest deferred to Phase 13
+
+### Verified
+- Run once: 3 escalated, 1 breach_only. Run again: all zeros, nothing changed
+- Overlapping runs: B read the same 4 candidates before A committed, skipped all 4
+- Forced failure: one ERROR, the other three still processed
+- DB stopped: one `sweep_failed` JSON line
+- Clean volume: `002` runs in order, Java `validate` passes, Java inserts get `false` from the default
+
+### Reps
+- (a) Connect, read, write, commit from a blank file. Python correct, scratch schema so not run, missed print and close
+- (b) Why the sweep must be safe to run twice. Partial: had the race and the DB guard, missed why it runs twice in production
+
+### What was hard
+- Explaining *why* idempotency is needed, not just *how*
+- Made mistakes in Powershell repeatedly: unclosed quotes, no `<` redirection, Activate.ps1 execution policy
+- Remembering my own schema cold (column names, identity id, NOT NULLs, enum values)
+
+### What clicked
+- The deadline and the guard are two different things. Resetting `due_at` would have erased the breach
+- The candidate SELECT is only a hint, the guarded UPDATE is the real check
+- Each escalated row got a slightly different `updated_at`: proof of one transaction per incident
+- DB-API transactions are implicit. Close without commit and the writes are gone
+
+### Gotchas
+- `pip freeze` grabs everything in the venv. Freeze before installing dev deps
+- `load_dotenv()` must run before any `os.environ` read, so config is read lazily in `get_conn()`
+- Env vars are strings: `int()` the port
+- pg8000 returns rows as lists, not tuples
+- Enum parameters need `%s::severity`
+- Init scripts run only on an empty volume, alphabetically (digits before letters)
+- logging defaults to WARNING, and a custom formatter drops tracebacks unless it calls `formatException`
+- `002` is not on Supabase yet. Will have to apply it before the Lambda touches prod
+
+### Open
+- `@Version` on Incident for the shared-severity lost update (Phase 11 or 13)
+- Map `sla_breached` read-only in Java for the UI (Phase 11)
+- A stale cached connection costs one failed tick. Retry-once would be the upgrade, if it matters
