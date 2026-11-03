@@ -5,6 +5,7 @@ import logging
 import sys
 import time
 import uuid
+import ssl
 
 
 
@@ -55,13 +56,18 @@ INSERT_ESCALATION_SQL = """
 
 
 def load_config() -> dict:
-    return {
+    config = {
         "database": os.environ["DB_NAME"],
         "host": os.environ["DB_HOST"],
         "port": int(os.environ["DB_PORT"]),
         "user": os.environ["DB_USER"],
         "password": os.environ["DB_PASSWORD"]
     }
+
+    if os.environ.get("DB_SSL_MODE") != "disable":
+        config["ssl_context"] = ssl.create_default_context(cafile=os.environ["DB_SSL_CA"])
+
+    return config
 
 def fetch_candidates(conn) -> list:
     cursor = conn.cursor()
