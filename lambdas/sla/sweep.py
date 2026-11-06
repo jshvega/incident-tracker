@@ -55,13 +55,34 @@ INSERT_ESCALATION_SQL = """
 
 
 
+def get_password() -> str:
+    global db_password
+
+    if db_password is not None:
+        return db_password
+
+    param_name = os.environ.get("DB_PASSWORD_PARAM")
+    local_password = os.environ.get("DB_PASSWORD")
+
+    if param_name:
+        import boto3
+        client = boto3.client("ssm")
+        response = client.get_parameter(Name=param_name, WithDecryption=True)
+        db_password = response["Parameter"]["Value"]
+    elif local_password:
+        db_password = local_password
+    else:
+        raise RuntimeError("Set DB_PASSWORD_PARAM or DB_PASSWORD")
+    
+    return db_password
+    
 def load_config() -> dict:
     config = {
         "database": os.environ["DB_NAME"],
         "host": os.environ["DB_HOST"],
         "port": int(os.environ["DB_PORT"]),
         "user": os.environ["DB_USER"],
-        "password": os.environ["DB_PASSWORD"]
+        "password": get_password()
     }
 
     if os.environ.get("DB_SSL_MODE") != "disable":
@@ -144,6 +165,7 @@ def handler(event, context):
 
 setup_logging()
 conn = None
+db_password = None
 
 if __name__ == '__main__':
     from dotenv import load_dotenv

@@ -1,2 +1,3 @@
 -r requirements.txt
 python-dotenv==1.2.4
+boto3==1.43.125
