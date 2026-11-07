@@ -288,3 +288,34 @@ Spring Boot 4.1.1 project in /api; GET /incidents returning six rows from Supaba
 - `@Version` on Incident for the shared-severity lost update (Phase 11 or 13)
 - Map `sla_breached` read-only in Java for the UI (Phase 11)
 - A stale cached connection costs one failed tick. Retry-once would be the upgrade, if it matters
+
+
+---
+
+
+## Phase 7
+
+### Built
+- Migration 002 applied to prod. Migration 003: `sla_engine` Postgres role with column-level grants, proven locally by a rejected write outside its columns.
+- TLS to Supabase in the sweep, fail-closed (on unless explicitly disabled), verified against Supabase's CA.
+- DB password read from SSM Parameter Store (SecureString), once per cold start.
+- `build.py`: arm64-pinned wheels, forward-slash zip paths, zip with `sweep.py` and the CA cert.
+- By hand in us-east-1: log group (14-day retention), SSM parameter, execution role (trust policy + least-privilege inline policy), Lambda (python3.12, arm64, 256 MB, 10 s).
+- Verified in prod: three old overdue incidents escalated on the first run. A real incident created through the API was ignored before its deadline, escalated after, untouched on rerun, and the API read back the Lambda's write.
+- Measured: cold about 2.3 s, warm 20 to 40 ms. 128 MB doubled the cold run for the same GB-seconds. A forced AccessDenied failure seen in the CLI, the logs and the Errors metric.
+
+## Reps
+- (a) One action on one resource: passed on the third pass. First picked an action that didn't match the resource type.
+- (b) Schedule to function, out loud: passed after corrections on who invokes and where the credentials come from.
+
+## What was hard
+- Predicting cold vs warm: missed all three predictions the first time.
+- My first SSL version was fail-open: a missing CA meant an unencrypted connection.
+- Telling the invoker apart from the execution role, and AWS credential env vars apart from app config env vars.
+
+## What clicked
+- Same log stream = same execution environment. Globals survive the freeze.
+- Implicit deny, read straight from a real AccessDenied message.
+- StatusCode 200 with FunctionError: the invoke worked, the function didn't.
+- Any config change forces a cold start.
+- Column ownership is now enforced by the database, not by convention.
