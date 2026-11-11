@@ -1,0 +1,4 @@
+db_port = "port"
+db_user = "your-user"
+db_name = "your-database-name"
+db_host = "your-pooler-host"
