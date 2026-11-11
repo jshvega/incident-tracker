@@ -7,6 +7,13 @@ resource "aws_cloudwatch_log_group" "sla_sweep" {
   retention_in_days = 14
 }
 
+resource "aws_ssm_parameter" "db_password" {
+  name             = "/incident-tracker/prod/sla/db-password"
+  type             = "SecureString"
+  value_wo         = var.db_password
+  value_wo_version = 1
+}
+
 resource "aws_iam_role" "sla_sweep" {
   name = "${local.name_prefix}-role"
   assume_role_policy = jsonencode({
@@ -42,7 +49,7 @@ resource "aws_iam_role_policy" "sla_sweep" {
         Sid      = "ReadDbPassword"
         Effect   = "Allow"
         Action   = "ssm:GetParameter"
-        Resource = "arn:aws:ssm:us-east-1:056520431602:parameter/incident-tracker/prod/sla/db-password"
+        Resource = "${aws_ssm_parameter.db_password.arn}"
       }
     ]
   })
