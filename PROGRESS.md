@@ -304,18 +304,47 @@ Spring Boot 4.1.1 project in /api; GET /incidents returning six rows from Supaba
 - Verified in prod: three old overdue incidents escalated on the first run. A real incident created through the API was ignored before its deadline, escalated after, untouched on rerun, and the API read back the Lambda's write.
 - Measured: cold about 2.3 s, warm 20 to 40 ms. 128 MB doubled the cold run for the same GB-seconds. A forced AccessDenied failure seen in the CLI, the logs and the Errors metric.
 
-## Reps
+### Reps
 - (a) One action on one resource: passed on the third pass. First picked an action that didn't match the resource type.
 - (b) Schedule to function, out loud: passed after corrections on who invokes and where the credentials come from.
 
-## What was hard
+### What was hard
 - Predicting cold vs warm: missed all three predictions the first time.
 - My first SSL version was fail-open: a missing CA meant an unencrypted connection.
 - Telling the invoker apart from the execution role, and AWS credential env vars apart from app config env vars.
 
-## What clicked
+### What clicked
 - Same log stream = same execution environment. Globals survive the freeze.
 - Implicit deny, read straight from a real AccessDenied message.
 - StatusCode 200 with FunctionError: the invoke worked, the function didn't.
 - Any config change forces a cold start.
 - Column ownership is now enforced by the database, not by convention.
+
+
+---
+
+
+## Phase 8
+
+### Built
+- `/infra`: the SLA engine's AWS side as code: log group, IAM role and inline policy, SSM parameter, Lambda. Split into `versions.tf`, `variables.tf`, `outputs.tf` and `sla.tf`.
+- Brought the Phase 7 console resources under Terraform: the log group, role, policy and function were imported with `import` blocks; the SecureString parameter was recreated instead, so its decrypted value never passed through state.
+- The DB password is set through the write-only argument `value_wo` from an ephemeral variable. It never reaches the plan or the state file, verified by searching both state files after the migration and after a full rebuild.
+- Lambda code comes from `build.py`'s zip, tracked with `filebase64sha256`. Env vars split into tfvars variables, one reference (the parameter name) and one constant (the CA file).
+- Verified on the Terraform-managed function: a real incident escalated low to high, a rerun changed nothing, cold and warm timings match Phase 7.
+- The Done When: `terraform destroy` removed all five resources, `terraform apply` rebuilt them in under a minute, and a cold invoke on the rebuilt stack connected and swept normally.
+
+### Reps
+- (a) From a blank file: an S3 bucket plus versioning by reference. Applied, verified in AWS, destroyed.
+- (b) Out loud: what the state file is and what happens if it's deleted.
+
+### What was hard
+- Importing a SecureString: import can read the decrypted value into state, which defeats the point of keeping it out. Recreating it was the safe path.
+- The Lambda zip isn't deterministic, so every rebuild redeploys the function.
+- Environment traps: a named AWS profile set only in the project terminal, `<placeholders>` as PowerShell operators, `>` writing UTF-16.
+
+### What clicked
+- Import as a test: a clean plan after import proves the code matches what was built by hand.
+- References set the order. Nobody wrote "role before function", and destroy walked the same graph backwards.
+- A reference to something not yet created is "known after apply": the plan shows a change that the apply then skips.
+- `sensitive` only hides output. Write-only is what keeps a value out of state.
