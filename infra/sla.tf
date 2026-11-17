@@ -1,6 +1,7 @@
 locals {
   name_prefix = "incident-tracker-sla-sweep"
   sla_zip     = "${path.module}/../lambdas/sla/build/sla-sweep.zip"
+  project     = "incident-tracker"
 }
 
 resource "aws_cloudwatch_log_group" "sla_sweep" {
@@ -51,6 +52,12 @@ resource "aws_iam_role_policy" "sla_sweep" {
         Effect   = "Allow"
         Action   = "ssm:GetParameter"
         Resource = "${aws_ssm_parameter.db_password.arn}"
+      },
+      {
+        Sid      = "SendFailuresToDlq"
+        Effect   = "Allow"
+        Action   = "sqs:SendMessage"
+        Resource = aws_sqs_queue.dlq.arn
       }
     ]
   })
@@ -80,4 +87,16 @@ resource "aws_lambda_function" "sla_sweep" {
     log_format = "Text"
     log_group  = aws_cloudwatch_log_group.sla_sweep.name
   }
+}
+
+resource "aws_lambda_function_event_invoke_config" "sla_sweep" {
+  function_name                = aws_lambda_function.sla_sweep.function_name
+  maximum_retry_attempts       = 0
+  maximum_event_age_in_seconds = 60
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.dlq.arn
+    }
+  }
+  depends_on = [aws_iam_role_policy.sla_sweep]
 }
