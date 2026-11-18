@@ -1,0 +1,20 @@
+{
+  "version": "0",
+  "id": "0b1c2d3e-0000-4000-8000-000000000002",
+  "detail-type": "IncidentCreated",
+  "source": "incident-tracker.api",
+  "account": "123456789012",
+  "time": "2026-11-18T14:02:00Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "schemaVersion": 2,
+    "incidentId": 12,
+    "title": "Payments API down",
+    "severity": "critical",
+    "slaMinutes": 30,
+    "dueAt": "2026-11-18T14:32:00Z",
+    "reporterId": 3,
+    "createdAt": "2026-11-18T14:02:00Z"
+  }
+}
