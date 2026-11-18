@@ -1,6 +1,6 @@
 locals {
   name_prefix = "incident-tracker-sla-sweep"
-  sla_zip     = "${path.module}/../lambdas/sla/build/sla-sweep.zip"
+  sla_zip = "${path.module}/../lambdas/sla/build/sla-sweep.zip"
   project     = "incident-tracker"
 }
 
