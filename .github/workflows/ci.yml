@@ -58,7 +58,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v4
         with:                         
           terraform_version: 1.15.8 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Build Lambda zip
