@@ -25,3 +25,7 @@ output "event_bus_arn" {
 output "notifications_bucket" {
   value = aws_s3_bucket.notifications.bucket
 }
+
+output "publisher_user_name" {
+  value = aws_iam_user.publisher.name
+}

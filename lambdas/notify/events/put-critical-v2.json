@@ -1,0 +1,8 @@
+[
+  {
+    "Source": "incident-tracker.api",
+    "DetailType": "IncidentCreated",
+    "EventBusName": "incident-tracker",
+    "Detail": "{\"schemaVersion\":2,\"incidentId\":12,\"title\":\"Payments API down\",\"severity\":\"critical\",\"slaMinutes\":30,\"dueAt\":\"2026-11-18T14:32:00Z\",\"reporterId\":3,\"createdAt\":\"2026-11-18T14:02:00Z\"}"
+  }
+]
