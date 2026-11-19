@@ -39,16 +39,16 @@ resource "aws_iam_user" "publisher" {
 }
 
 resource "aws_iam_user_policy" "publisher" {
-  name   = "put-events-incident-tracker-bus"
-  user   = aws_iam_user.publisher.name
+  name = "put-events-incident-tracker-bus"
+  user = aws_iam_user.publisher.name
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
-        Sid = "PutEventsOnOwnBus"
-        Effect = "Allow"
-        Action = "events:PutEvents"
-        Resource = aws_cloudwatch_event_bus.main.arn
+        Sid       = "PutEventsOnOwnBus"
+        Effect    = "Allow"
+        Action    = "events:PutEvents"
+        Resource  = aws_cloudwatch_event_bus.main.arn
         Condition = { StringEquals = { "events:source" = "incident-tracker.api" } }
       }
     ]
