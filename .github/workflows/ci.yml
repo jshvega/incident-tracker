@@ -63,6 +63,8 @@ jobs:
           python-version: "3.12"
       - name: Build Lambda zip
         run: python ../lambdas/sla/build.py
+      - name: Build notify zip
+        run: python ../lambdas/notify/build.py
       - name: Init
         run: terraform init -backend=false
       - name: Format check
