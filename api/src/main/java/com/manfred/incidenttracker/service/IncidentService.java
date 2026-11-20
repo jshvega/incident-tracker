@@ -5,9 +5,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 
 import com.manfred.incidenttracker.domain.IncidentStateMachine;
 import com.manfred.incidenttracker.dto.AssignIncidentRequest;
+import com.manfred.incidenttracker.events.IncidentCreated;
 import com.manfred.incidenttracker.dto.CommentResponse;
 import com.manfred.incidenttracker.dto.CreateCommentRequest;
 import com.manfred.incidenttracker.dto.CreateIncidentRequest;
@@ -50,15 +52,17 @@ public class IncidentService {
     private final StatusHistoryRepository statusHistoryRepository;
     private final CommentRepository commentRepository;
     private final IncidentStateMachine machine;
+    private final ApplicationEventPublisher events;
 
     // CONSTRUCTOR
     // "When Spring creates my service, give me an IncidentRepository, and I'll store it."
-    public IncidentService(IncidentRepository incidentRepository, UserRepository userRepository, StatusHistoryRepository statusHistoryRepository, CommentRepository commentRepository, IncidentStateMachine machine){
+    public IncidentService(IncidentRepository incidentRepository, UserRepository userRepository, StatusHistoryRepository statusHistoryRepository, CommentRepository commentRepository, IncidentStateMachine machine, ApplicationEventPublisher events){
         this.incidentRepository = incidentRepository;
         this.userRepository = userRepository;
         this.statusHistoryRepository = statusHistoryRepository;
         this.commentRepository = commentRepository;
         this.machine = machine;
+        this.events = events;
     }
 
     // METHOD
@@ -166,6 +170,8 @@ public class IncidentService {
         incident.setAssignee(assignee);
 
         Incident saved = incidentRepository.save(incident);
+
+        events.publishEvent(new IncidentCreated(saved.getId(), saved.getTitle(), saved.getIncidentSeverity(), saved.getSlaMinutes(), saved.getDueAt(), reporterId, saved.getCreatedAt()));
 
         return toDetail(saved);
 
