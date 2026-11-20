@@ -348,3 +348,33 @@ Spring Boot 4.1.1 project in /api; GET /incidents returning six rows from Supaba
 - References set the order. Nobody wrote "role before function", and destroy walked the same graph backwards.
 - A reference to something not yet created is "known after apply": the plan shows a change that the apply then skips.
 - `sensitive` only hides output. Write-only is what keeps a value out of state.
+
+
+---
+
+
+## Phase 9
+
+### Built
+- The SLA Lambda now runs unattended: EventBridge Scheduler invokes it every 5 minutes. Proven in prod: an incident with a 1-minute SLA was escalated by the next tick with no manual step, and the tick after that found nothing.
+- Event-driven notifications: after an incident commits, the API publishes `IncidentCreated` to a custom EventBridge bus. A rule routes critical incidents to a new Python Lambda that archives a summary to S3, keyed by event id.
+- Failure handling in two layers (delivery and execution) with one shared SQS dead-letter queue. Drilled on purpose: 3 attempts, then a `RetriesExhausted` record with the error and the original event.
+- A publisher IAM user scoped to one action, one bus and one source, with its key kept out of Terraform state.
+- A mini CI on GitHub Actions: API tests against a Postgres service container, plus `terraform fmt -check` and `validate`. One deliberately red PR.
+- README rewritten for the milestone.
+
+### Reps
+Written up as study notes instead of done live (one-time exception): 
+- (a) a Terraform schedule invoking a trivial Lambda every minute
+- (b) what happens when the notification Lambda fails.
+
+### What was hard
+- Keeping the two failure layers straight: who retries, and whose permission reaches the DLQ (scheduler role, function role, queue policy).
+- PowerShell: `Get-Credential` swallowed the next pasted line, and quoting JSON broke at spaces.
+- The SDK's default HTTP clients (including the newer Apache 5) needed explicit exclusions to stay inside 512 MB.
+
+### What clicked
+- The publisher states facts and the rule decides who cares, so a new consumer is a new rule with no Java change.
+- Idempotent by design: a key built from the event survives retries, even across midnight.
+- A 200 from `PutEvents` isn't success until `FailedEntryCount` is 0.
+- A check that can't fail proves nothing.
